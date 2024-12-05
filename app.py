@@ -30,22 +30,18 @@ logger = logging.getLogger(__name__)
 def create_assistant():
     client = openai.OpenAI()
     assistant = client.beta.assistants.retrieve(ASSISTANT_ID)
-    logger.info(f"Assistant created with ID: {ASSISTANT_ID}")
     return assistant
 
 def create_thread(client):
     thread = client.beta.threads.create()
-    logger.info(f"Thread created with ID: {thread.id}")
     return thread
 
-def add_message(client, thread_id, content):
-    logger.info(f"Content: {content}")
+def add_message(client, thread_id, content, role="user"):
     message = client.beta.threads.messages.create(
         thread_id=thread_id,
-        role="user",
+        role=role,
         content=content
     )
-    logger.info(f"Message added to thread {thread_id}")
     return message
 
 def run_assistant(client, thread_id, assistant_id):
@@ -53,13 +49,12 @@ def run_assistant(client, thread_id, assistant_id):
         thread_id=thread_id,
         assistant_id=assistant_id
     )
-    logger.info(f"Assistant run completed for thread {thread_id}")
     return response
 
-def process_section(section, assistant_id):
+def process_section(section, assistant_id, markdown_content):
     client = openai.OpenAI()
     thread = create_thread(client)
-    add_message(client, thread.id, MAKE_BETTER_PROMPT.format(section))
+    add_message(client, thread.id, MAKE_BETTER_PROMPT.format(section, markdown_content))
     improved_section = run_assistant(client, thread.id, assistant_id)
 
     final_section = ""
@@ -70,10 +65,7 @@ def process_section(section, assistant_id):
         )
 
         first_response_content = messages.data[0].content[0].text.value
-        logger.info(f"First response: {first_response_content}")
-        logger.info("Improved section received")
 
-        thread = create_thread(client)
         add_message(client, thread.id, CRITIQUE_PROMPT.format(first_response_content))
         final_section = run_assistant(client, thread.id, assistant_id)
         
@@ -83,30 +75,46 @@ def process_section(section, assistant_id):
             )
 
             final_section = messages.data[0].content[0].text.value
-            logger.info("Final section received after critique")
 
         else:
             final_section = "Error processing Critique. Please try again."
-            logger.error("Error processing Critique")
 
     else:
         final_section = "Error processing Improve. Please try again."
-        logger.error("Error processing Improve")
 
     return final_section
+
+def process_final_content(content, assistant_id):
+    client = openai.OpenAI()
+    thread = create_thread(client)
+    add_message(client, thread.id, CRITIQUE_PROMPT.format(content))
+    final = run_assistant(client, thread.id, assistant_id)
+
+    final_content = ""
+    
+    if final.status == 'completed': 
+        messages = client.beta.threads.messages.list(
+            thread_id=thread.id
+        )
+
+        final_content = messages.data[0].content[0].text.value
+    else:
+        final_content = "Error processing final Critique. Please try again."
+
+    return final_content
 
 def convert_alternate_headers(markdown_content):
     lines = markdown_content.split('\n')
     converted_lines = []
-    i = 0
 
+    i = 0
     while i < len(lines):
         line = lines[i]
-        if i + 1 < len(lines) and (lines[i + 1].startswith('=') or lines[i + 1].startswith('-')):
-            if lines[i + 1].startswith('=') and len(lines[i + 1]) >= 3:
+        if i + 1 < len(lines) and (lines[i + 1].startswith('=====') or lines[i + 1].startswith('-----')):
+            if lines[i + 1].startswith('====='):
                 converted_lines.append(f"# {line}")
                 i += 2  # Skip the next line
-            elif lines[i + 1].startswith('-') and len(lines[i + 1]) >= 3:
+            elif lines[i + 1].startswith('-----'):
                 converted_lines.append(f"## {line}")
                 i += 2  # Skip the next line
             else:
@@ -118,27 +126,74 @@ def convert_alternate_headers(markdown_content):
 
     return '\n'.join(converted_lines)
 
+def split_sections(markdown_content):
+    lines = markdown_content.splitlines()
+    result = []
+
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
+        if not line:
+            i += 1
+            continue
+        elif line.startswith('#'):
+            # It's a header
+            header = line
+            result.append(header)
+            i += 1
+            # Collect content lines
+            content_lines = []
+            while i < len(lines):
+                line = lines[i].strip()
+                if not line:
+                    i += 1
+                    continue
+                elif line.startswith('#'):
+                    # Next header found
+                    break
+                else:
+                    content_lines.append(line)
+                    i += 1
+            content = '\n'.join(content_lines)
+            result.append(content)
+        else:
+            i += 1
+
+    return result
+
+def process_sections(sections, markdown_content):
+    logging.info(f"Sections: {sections}")
+    assistant = create_assistant()
+    final_content = ""
+    
+    i = 0
+    while i < len(sections):
+        header = sections[i]
+        logging.info(f"Header: {header}")
+
+        if i + 1 < len(sections):
+            content = sections[i + 1]
+            logging.info(f"Content: {content}")
+            final_content += process_section(header + "\n" + content, assistant.id, markdown_content)
+            i += 2
+        else:
+            final_content += header
+            i += 1
+
+        final_content += "\n"
+
+    final_content = process_final_content(final_content, assistant.id)
+
+    return final_content
+
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
         markdown_content = request.form['markdown_content']
         markdown_content = convert_alternate_headers(markdown_content)
-        sections = re.split(r'(\n#+ .+\n)', markdown_content)
-        
-        logging.info(f"Sections: {sections}")
-        
-        assistant = create_assistant()
-        final_content = ""
-        
-        for i in range(0, len(sections), 2):
-            header = sections[i]
-            content = sections[i + 1] if i + 1 < len(sections) else ""
-            if content:  # Check if content is not blank
-                final_content += header + "\n" + process_section(content, assistant.id) + "\n"
-            else:
-                final_content += header + "\n"
+        sections = split_sections(markdown_content)
+        final_content = process_sections(sections, markdown_content)
 
-        logger.info("Final content generated")
         return render_template('index.html', final_content=final_content)
 
     return render_template('index.html')

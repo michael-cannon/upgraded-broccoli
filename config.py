@@ -6,7 +6,7 @@ Act as a professional consultant with relevant domain experience.
 
 # OBJECTIVE
 
-Thoroughly analyze the SOURCE MATERIAL, considering its audience, purpose, and key objectives. Then, extend and improve it based on the following criteria:
+Thoroughly analyze the SOURCE MATERIAL, considering its audience, purpose, and key objectives within the context of the REFERENCE MATERIALS. Then, extend and improve the SOURCE MATERIAL based on the following criteria:
 
 - Relevance: Does the content fully address its objectives? Identify any gaps or unnecessary sections.
 - Clarity: Break down any complex or unclear sections. Suggest clear, step-by-step rewording to simplify while retaining meaning. Offer multiple examples of how to phrase ideas for better readability.
@@ -46,7 +46,21 @@ Maintain the SOURCE MATERIALS formatting.
 
 # SOURCE MATERIALS
 
+**********
+
 {}
+
+**********
+
+# REFERENCE MATERIALS
+
+**********
+
+{}
+
+**********
+
+
 """
 
 CRITIQUE_PROMPT = """
@@ -65,4 +79,6 @@ Steps:
 # SOURCE MATERIALS
 
 {}
+
+
 """
