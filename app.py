@@ -3,6 +3,7 @@ from flask import Flask, request, render_template
 import openai
 import re
 import os
+from config import MAKE_BETTER_PROMPT, CRITIQUE_PROMPT
 
 app = Flask(__name__)
 
@@ -38,7 +39,7 @@ def run_assistant(client, thread_id, assistant_id):
 def process_section(section, assistant_id):
     client = openai.OpenAI()
     thread = create_thread(client)
-    add_message(client, thread.id, f"Make this better:\n\n{section}")
+    add_message(client, thread.id, MAKE_BETTER_PROMPT.format(section))
     improved_section = run_assistant(client, thread.id, assistant_id)
 
     final_section = ""
@@ -51,7 +52,7 @@ def process_section(section, assistant_id):
         first_response_content = messages.data[0].content[0].text.value
 
         thread = create_thread(client)
-        add_message(client, thread.id, f"Critique the response, apply suggestions, and only return the final result:\n\n{first_response_content}")
+        add_message(client, thread.id, CRITIQUE_PROMPT.format(first_response_content))
         final_section = run_assistant(client, thread.id, assistant_id)
         
         if improved_section.status == 'completed': 
