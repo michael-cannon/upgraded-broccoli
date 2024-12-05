@@ -21,7 +21,6 @@ Avoid:
 - Including the content's Relevance, Clarity, Tone, Creativity, and Impact notes.
 
 Steps:
-- Use sectional headers.
 - Only output the final rewrite.
 
 
