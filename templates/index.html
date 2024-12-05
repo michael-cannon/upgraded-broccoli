@@ -1,0 +1,20 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Markdown Improver</title>
+</head>
+<body>
+    <h1>Markdown Improver</h1>
+    <form method="post">
+        <textarea name="markdown_content" rows="10" cols="50"></textarea><br>
+        <input type="submit" value="Submit">
+    </form>
+    {% if final_content %}
+        <h2>Improved Content</h2>
+        <pre>{{ final_content }}</pre>
+    {% endif %}
+</body>
+</html>
