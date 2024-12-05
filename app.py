@@ -5,7 +5,7 @@ import re
 import os
 import logging
 from dotenv import load_dotenv
-from config import MAKE_BETTER_PROMPT, CRITIQUE_PROMPT
+from config import MAKE_BETTER_PROMPT, CRITIQUE_PROMPT, FINAL_CRITIQUE_PROMPT
 
 app = Flask(__name__)
 
@@ -51,27 +51,26 @@ def run_assistant(client, thread_id, assistant_id):
     )
     return response
 
-def process_section(section, assistant_id, markdown_content):
+def process_section(section, assistant_id, thread_id, markdown_content):
     client = openai.OpenAI()
-    thread = create_thread(client)
-    add_message(client, thread.id, MAKE_BETTER_PROMPT.format(section, markdown_content))
-    improved_section = run_assistant(client, thread.id, assistant_id)
+    add_message(client, thread_id, MAKE_BETTER_PROMPT.format(section, markdown_content))
+    improved_section = run_assistant(client, thread_id, assistant_id)
 
     section_content = ""
     
     if improved_section.status == 'completed': 
         messages = client.beta.threads.messages.list(
-            thread_id=thread.id
+            thread_id=thread_id
         )
 
         first_response_content = messages.data[0].content[0].text.value
 
-        add_message(client, thread.id, CRITIQUE_PROMPT.format(first_response_content))
-        section_content = run_assistant(client, thread.id, assistant_id)
+        add_message(client, thread_id, CRITIQUE_PROMPT.format(first_response_content))
+        section_content = run_assistant(client, thread_id, assistant_id)
         
         if improved_section.status == 'completed': 
             messages = client.beta.threads.messages.list(
-                thread_id=thread.id
+                thread_id=thread_id
             )
 
             section_content = messages.data[0].content[0].text.value
@@ -84,17 +83,16 @@ def process_section(section, assistant_id, markdown_content):
 
     return section_content
 
-def process_final_content(content, assistant_id):
+def process_final_content(content, assistant_id, thread_id):
     client = openai.OpenAI()
-    thread = create_thread(client)
-    add_message(client, thread.id, CRITIQUE_PROMPT.format(content))
-    final = run_assistant(client, thread.id, assistant_id)
+    add_message(client, thread_id, FINAL_CRITIQUE_PROMPT.format(content))
+    final = run_assistant(client, thread_id, assistant_id)
 
     final_content = ""
     
     if final.status == 'completed': 
         messages = client.beta.threads.messages.list(
-            thread_id=thread.id
+            thread_id=thread_id
         )
 
         final_content = messages.data[0].content[0].text.value
@@ -161,30 +159,28 @@ def split_sections(markdown_content):
 
     return result
 
-def process_sections(sections, markdown_content):
-    logging.info(f"Sections: {sections}")
+def process_sections(sections, markdown_content, thread_id):
     assistant = create_assistant()
-    final_content = ""
+    section_content = ""
     
     i = 0
     while i < len(sections):
         header = sections[i]
-        logging.info(f"Header: {header}")
 
         if i + 1 < len(sections):
             content = sections[i + 1]
-            logging.info(f"Content: {content}")
-            final_content += process_section(header + "\n" + content, assistant.id, markdown_content)
+            section_content += process_section(header + "\n" + content, assistant.id, thread_id, markdown_content)
             i += 2
         else:
-            final_content += header
+            section_content += header
             i += 1
 
-        final_content += "\n"
+        section_content += "\n"
 
-    final_content = process_final_content(final_content, assistant.id)
+    logger.info(f"Section content: {section_content}")
+    section_content = process_final_content(section_content, assistant.id, thread_id)
 
-    return final_content
+    return section_content
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -192,7 +188,10 @@ def index():
         markdown_content = request.form['markdown_content']
         markdown_content = convert_alternate_headers(markdown_content)
         sections = split_sections(markdown_content)
-        final_content = process_sections(sections, markdown_content)
+        
+        client = openai.OpenAI()
+        thread = create_thread(client)
+        final_content = process_sections(sections, markdown_content, thread.id)
 
         return render_template('index.html', final_content=final_content)
 
