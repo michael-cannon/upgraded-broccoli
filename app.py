@@ -57,7 +57,7 @@ def process_section(section, assistant_id, markdown_content):
     add_message(client, thread.id, MAKE_BETTER_PROMPT.format(section, markdown_content))
     improved_section = run_assistant(client, thread.id, assistant_id)
 
-    final_section = ""
+    section_content = ""
     
     if improved_section.status == 'completed': 
         messages = client.beta.threads.messages.list(
@@ -67,22 +67,22 @@ def process_section(section, assistant_id, markdown_content):
         first_response_content = messages.data[0].content[0].text.value
 
         add_message(client, thread.id, CRITIQUE_PROMPT.format(first_response_content))
-        final_section = run_assistant(client, thread.id, assistant_id)
+        section_content = run_assistant(client, thread.id, assistant_id)
         
         if improved_section.status == 'completed': 
             messages = client.beta.threads.messages.list(
                 thread_id=thread.id
             )
 
-            final_section = messages.data[0].content[0].text.value
+            section_content = messages.data[0].content[0].text.value
 
         else:
-            final_section = "Error processing Critique. Please try again."
+            section_content = "Error processing Critique. Please try again."
 
     else:
-        final_section = "Error processing Improve. Please try again."
+        section_content = "Error processing Improve. Please try again."
 
-    return final_section
+    return section_content
 
 def process_final_content(content, assistant_id):
     client = openai.OpenAI()
