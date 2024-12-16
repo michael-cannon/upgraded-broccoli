@@ -5,7 +5,7 @@ import re
 import os
 import logging
 from dotenv import load_dotenv
-from config import MAKE_BETTER_PROMPT, CRITIQUE_PROMPT, FINAL_CRITIQUE_PROMPT
+from config import CLARITY_PROMPT, MAKE_BETTER_PROMPT, CRITIQUE_PROMPT, FINAL_CRITIQUE_PROMPT
 
 app = Flask(__name__)
 
@@ -53,7 +53,8 @@ def run_assistant(client, thread_id, assistant_id):
 
 def process_section(section, assistant_id, thread_id, markdown_content):
     client = openai.OpenAI()
-    add_message(client, thread_id, MAKE_BETTER_PROMPT.format(section, markdown_content))
+    # add_message(client, thread_id, MAKE_BETTER_PROMPT.format(section, markdown_content))
+    add_message(client, thread_id, CLARITY_PROMPT.format(section))
     improved_section = run_assistant(client, thread_id, assistant_id)
 
     section_content = ""

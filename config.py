@@ -1,3 +1,15 @@
+CLARITY_PROMPT = """
+Please add greater descriptive detail to the SOURCE MATERIAL for improved reader clarity and understanding.
+ 
+
+# SOURCE MATERIALS
+
+{}
+
+
+"""
+
+
 MAKE_BETTER_PROMPT = """
 # CONTEXT
 
