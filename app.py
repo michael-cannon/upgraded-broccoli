@@ -53,8 +53,11 @@ def run_assistant(client, thread_id, assistant_id):
 
 def process_section(section, assistant_id, thread_id, markdown_content):
     client = openai.OpenAI()
-    # add_message(client, thread_id, MAKE_BETTER_PROMPT.format(section, markdown_content))
-    add_message(client, thread_id, CLARITY_PROMPT.format(section))
+    if False:
+        add_message(client, thread_id, MAKE_BETTER_PROMPT.format(section, markdown_content))
+    else:
+        add_message(client, thread_id, CLARITY_PROMPT.format(section))
+
     improved_section = run_assistant(client, thread_id, assistant_id)
 
     section_content = ""
@@ -170,6 +173,7 @@ def process_sections(sections, markdown_content, thread_id):
 
         if i + 1 < len(sections):
             content = sections[i + 1]
+            logger.info(f"Header: {header}")
             section_content += process_section(header + "\n" + content, assistant.id, thread_id, markdown_content)
             i += 2
         else:
